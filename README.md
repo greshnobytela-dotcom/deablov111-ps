@@ -1,6 +1,6 @@
 # by DEABLOV111
 
-PowerShell-скрипты для скриншара: включение служб и компактный `SERVICE STATUS`.
+PowerShell-скрипты для скриншара в кровавом стиле.
 
 ## Скрипты
 
@@ -8,6 +8,7 @@ PowerShell-скрипты для скриншара: включение служ
 |------|------------|
 | `Service-Enabler.ps1` | Включает EventLog, SysMain, BAM, DPS и др. + Prefetch |
 | `Services.ps1` | SERVICE STATUS (14 служб), boot/uptime, диски, BAM/Prefetch, event history |
+| `DoomsDayDetector.ps1` | Doomsday Client Scanner (USN / Prefetch) |
 
 Запускать от **администратора**.
 
@@ -25,12 +26,19 @@ powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powersh
 powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powershell Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/greshnobytela-dotcom/deablov111-ps/refs/heads/main/Services.ps1)
 ```
 
+**DoomsDayDetector**
+
+```powershell
+powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powershell Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/greshnobytela-dotcom/deablov111-ps/refs/heads/main/DoomsDayDetector.ps1)
+```
+
 ## Локально
 
 ```powershell
 Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 .\Service-Enabler.ps1
 .\Services.ps1
+.\DoomsDayDetector.ps1
 ```
 
 by DEABLOV111
