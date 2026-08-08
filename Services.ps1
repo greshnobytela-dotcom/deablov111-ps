@@ -7,10 +7,86 @@
 #>
 
 $ErrorActionPreference = 'Continue'
+$esc = [char]27
 
-function Write-Header([string]$Text) {
+function Enable-AnsiConsole {
+    try {
+        Add-Type -ErrorAction Stop -Namespace Native -Name ConsoleVT -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern IntPtr GetStdHandle(int nStdHandle);
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+'@
+        $h = [Native.ConsoleVT]::GetStdHandle(-11)
+        $mode = [uint32]0
+        if ([Native.ConsoleVT]::GetConsoleMode($h, [ref]$mode)) {
+            [void][Native.ConsoleVT]::SetConsoleMode($h, ($mode -bor 0x0004))
+        }
+    }
+    catch {}
+}
+
+function Write-Ansi([string]$Text) {
+    [Console]::Write($Text)
+}
+
+function Write-BloodBanner {
+    Enable-AnsiConsole
+
+    # RGB: deep shadow / blood / highlight / drip
+    $sh  = "$esc[38;2;60;0;0m"
+    $mid = "$esc[38;2;120;0;0m"
+    $bld = "$esc[38;2;190;8;8m"
+    $hot = "$esc[38;2;255;40;40m"
+    $drip= "$esc[38;2;140;0;0m"
+    $rst = "$esc[0m"
+    $dim = "$esc[38;2;70;70;70m"
+
+    $art = @(
+        '██████╗ ███████╗ █████╗ ██████╗ ██╗      ██████╗ ██╗   ██╗ ██╗ ██╗ ██╗',
+        '██╔══██╗██╔════╝██╔══██╗██╔══██╗██║     ██╔═══██╗██║   ██║███║███║███║',
+        '██║  ██║█████╗  ███████║██████╔╝██║     ██║   ██║██║   ██║╚██║╚██║╚██║',
+        '██║  ██║██╔══╝  ██╔══██║██╔══██╗██║     ██║   ██║╚██╗ ██╔╝ ██║ ██║ ██║',
+        '██████╔╝███████╗██║  ██║██████╔╝███████╗╚██████╔╝ ╚████╔╝  ██║ ██║ ██║',
+        '╚═════╝ ╚══════╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚═════╝   ╚═══╝   ╚═╝ ╚═╝ ╚═╝'
+    )
+
     Write-Host ''
-    Write-Host $Text -ForegroundColor Cyan
+    # 3D shadow layer (offset down-right)
+    foreach ($line in $art) {
+        Write-Ansi ("  $sh$line$rst`n")
+    }
+    # Move cursor up and overwrite with blood layer (visual depth)
+    Write-Ansi ("$esc[$($art.Count)A")
+    $i = 0
+    foreach ($line in $art) {
+        $color = if ($i -lt 2) { $hot } elseif ($i -lt 4) { $bld } else { $mid }
+        Write-Ansi ("$color$line$rst`n")
+        $i++
+    }
+
+    # Blood drips under the banner
+    Write-Ansi ("$drip  ║     ║          ║    ║║          ║       ║║         ║  ║  ║$rst`n")
+    Write-Ansi ("$drip  ┘     ┘          ░    ░░     ▄    ▕       ░░         ▕  ▕  ▕$rst`n")
+
+    # Tagline with shadow
+    $tag = 'by DEABLOV111'
+    Write-Ansi ("$sh  $tag$rst`n")
+    Write-Ansi ("$esc[1A$hot$tag$rst  $dim screenshare toolkit$rst`n")
+    Write-Host ''
+}
+
+function Write-Section([string]$Text) {
+    $esc = [char]27
+    $c = "$esc[38;2;220;40;40m"
+    $g = "$esc[38;2;90;90;90m"
+    $w = "$esc[38;2;220;220;220m"
+    $rst = "$esc[0m"
+    $line = '─' * [Math]::Max(8, (62 - $Text.Length))
+    Write-Host ''
+    Write-Ansi ("$g┌─$c▓$rst $w$Text$rst $g$line$rst`n")
 }
 
 function Write-KV([string]$Key, [string]$Value, [ConsoleColor]$Color = 'White') {
@@ -63,25 +139,23 @@ function Resolve-Service([string]$Name) {
 function Get-BamStatus {
     $path = 'HKLM:\SYSTEM\CurrentControlSet\Services\bam'
     if (-not (Test-Path $path)) {
-        return @{ Ok = $false; Text = 'Missing'; Display = 'Background Activity Moderator Driver' }
+        return @{ Ok = $false; Text = 'ВЫЛЕЧЕНА'; Display = 'Background Activity Moderator Driver' }
     }
     try {
         $bp = Get-ItemProperty $path
         $start = [int]$bp.Start
-        # 0 Boot / 1 System / 2 Auto = enabled; 4 = disabled
         $ok = $start -ne 4
         return @{
             Ok      = $ok
-            Text    = $(if ($ok) { 'Enabled' } else { 'Disabled' })
+            Text    = $(if ($ok) { 'Enabled' } else { 'ВЫЛЕЧЕНА' })
             Display = 'Background Activity Moderator Driver'
         }
     }
     catch {
-        return @{ Ok = $false; Text = 'Error'; Display = 'Background Activity Moderator Driver' }
+        return @{ Ok = $false; Text = 'ВЫЛЕЧЕНА'; Display = 'Background Activity Moderator Driver' }
     }
 }
 
-# Компактный список как на скрине — только нужное для скриншара
 $WatchServices = [ordered]@{
     'SysMain'    = 'SysMain'
     'PcaSvc'     = 'Служба помощника по совместимости программ'
@@ -107,32 +181,58 @@ function Write-ServiceStatusLine {
         [string]$Right
     )
 
-    $color = if ($Ok) { 'Green' } else { 'Red' }
-    $left  = '{0,-14}' -f $Name
-    $mid   = '{0,-48}' -f (Get-TruncatedText $Display 48)
-    Write-Host ("{0} {1} | {2}" -f $left, $mid, $Right) -ForegroundColor $color
+    $esc = [char]27
+    $rst = "$esc[0m"
+    $namePad = '{0,-14}' -f $Name
+    $midPad  = '{0,-44}' -f (Get-TruncatedText $Display 44)
+
+    if ($Ok) {
+        $mark = "$esc[38;2;40;200;80m●$rst"
+        $fg   = "$esc[38;2;80;220;120m"
+        $pipe = "$esc[38;2;60;100;70m|$rst"
+        $rightColor = "$esc[38;2;120;255;160m"
+        Write-Ansi (" $mark $fg$namePad$rst $esc[38;2;140;140;140m$midPad$rst $pipe $rightColor$Right$rst`n")
+    }
+    else {
+        # Вылеченная служба — кроваво-красная
+        $mark = "$esc[38;2;255;20;20m✖$rst"
+        $fg   = "$esc[38;2;255;45;45m"
+        $pipe = "$esc[38;2;120;0;0m|$rst"
+        $rightColor = "$esc[1;38;2;255;60;60m"
+        Write-Ansi (" $mark $fg$namePad $midPad$rst $pipe $rightColor$Right$rst`n")
+    }
 }
 
-Write-Host ''
-Write-Host ('by DEABLOV111') -ForegroundColor DarkGray
+# ===== START =====
+Write-BloodBanner
+
+Write-Host ("  {0}" -f ('═' * 64)) -ForegroundColor DarkRed
 Write-KV 'Компьютер' $env:COMPUTERNAME
 Write-KV 'Пользователь' $env:USERNAME
 Write-KV 'Сейчас' (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+Write-Host ("  {0}" -f ('═' * 64)) -ForegroundColor DarkRed
 
-Write-Header 'SERVICE STATUS'
+Write-Section 'SERVICE STATUS'
+Write-Host ("  {0,-14} {1,-44}   {2}" -f 'SERVICE', 'DISPLAY NAME', 'STATE') -ForegroundColor DarkGray
+Write-Host ("  {0}" -f ('┄' * 68)) -ForegroundColor DarkRed
+
+$healed = 0
+$alive  = 0
 
 foreach ($name in $WatchServices.Keys) {
     $fallbackDisplay = $WatchServices[$name]
 
     if ($name -eq 'Bam') {
         $bam = Get-BamStatus
+        if ($bam.Ok) { $alive++ } else { $healed++ }
         Write-ServiceStatusLine -Name 'Bam' -Display $bam.Display -Ok $bam.Ok -Right $bam.Text
         continue
     }
 
     $svc = Resolve-Service $name
     if (-not $svc) {
-        Write-ServiceStatusLine -Name $name -Display $fallbackDisplay -Ok $false -Right 'Missing'
+        $healed++
+        Write-ServiceStatusLine -Name $name -Display $fallbackDisplay -Ok $false -Right 'ВЫЛЕЧЕНА'
         continue
     }
 
@@ -141,19 +241,22 @@ foreach ($name in $WatchServices.Keys) {
     $disabled = ($svc.StartType -eq 'Disabled')
 
     if ($running) {
+        $alive++
         $started = Get-ServiceStartTime -ServiceName $svc.Name
         $right = if ($started) { $started.ToString('HH:mm:ss') } else { (Get-Date).ToString('HH:mm:ss') }
         Write-ServiceStatusLine -Name $svc.Name -Display $display -Ok $true -Right $right
     }
-    elseif ($disabled) {
-        Write-ServiceStatusLine -Name $svc.Name -Display $display -Ok $false -Right 'Disabled'
-    }
     else {
-        Write-ServiceStatusLine -Name $svc.Name -Display $display -Ok $false -Right 'Stopped'
+        $healed++
+        Write-ServiceStatusLine -Name $svc.Name -Display $display -Ok $false -Right 'ВЫЛЕЧЕНА'
     }
 }
 
-Write-Header 'BOOT / UPTIME'
+Write-Host ("  {0}" -f ('┄' * 68)) -ForegroundColor DarkRed
+$esc = [char]27
+Write-Ansi ("  $esc[38;2;80;220;120m● alive: $alive$esc[0m   $esc[38;2;255;45;45m✖ вылечено: $healed$esc[0m`n")
+
+Write-Section 'BOOT / UPTIME'
 
 $boot = $null
 try { $boot = (Get-CimInstance Win32_OperatingSystem).LastBootUpTime }
@@ -178,7 +281,7 @@ try {
 }
 catch {}
 
-Write-Header 'DISKS'
+Write-Section 'DISKS'
 
 Get-CimInstance Win32_LogicalDisk | Sort-Object DeviceID | ForEach-Object {
     $sizeGB = if ($_.Size) { '{0:N1} ГБ' -f ($_.Size / 1GB) } else { '—' }
@@ -188,7 +291,7 @@ Get-CimInstance Win32_LogicalDisk | Sort-Object DeviceID | ForEach-Object {
     Write-Host ("  {0}  {1,-18}  {2,-6}  {3,-10} free {4}" -f $_.DeviceID, $label, $fs, $sizeGB, $freeGB)
 }
 
-Write-Header 'BAM / PREFETCH'
+Write-Section 'BAM / PREFETCH'
 
 $bamSvcPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\bam'
 $bamUserPath = 'HKLM:\SYSTEM\CurrentControlSet\Services\bam\State\UserSettings'
@@ -257,7 +360,7 @@ if (Test-Path $pf) {
     Write-KV 'Prefetch folder' 'ОТСУТСТВУЕТ' Red
 }
 
-Write-Header 'EVENT HISTORY'
+Write-Section 'EVENT HISTORY'
 
 function Get-WinEventsSafe {
     param([string]$LogName, [string]$FilterXPath, [int]$MaxEvents = 15)
@@ -308,6 +411,9 @@ if ($timeEv.Count -eq 0) {
 }
 
 Write-Host ''
-Write-Host 'by DEABLOV111' -ForegroundColor DarkGray
-Write-Host 'Если службы отключены — сначала Service-Enabler.ps1 от админа.' -ForegroundColor DarkGray
+Write-Host ("  {0}" -f ('═' * 64)) -ForegroundColor DarkRed
+$esc = [char]27
+Write-Ansi ("  $esc[38;2;60;0;0m  by DEABLOV111$esc[0m`n")
+Write-Ansi ("$esc[1A  $esc[38;2;255;40;40mby DEABLOV111$esc[0m$esc[38;2;90;90;90m  screenshare toolkit$esc[0m`n")
+Write-Host '  Если службы вылечены — сначала Service-Enabler.ps1 от админа.' -ForegroundColor DarkGray
 Write-Host ''

@@ -7,10 +7,72 @@
 #>
 
 $ErrorActionPreference = 'Continue'
+$esc = [char]27
+
+function Enable-AnsiConsole {
+    try {
+        Add-Type -ErrorAction Stop -Namespace Native -Name ConsoleVT -MemberDefinition @'
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern IntPtr GetStdHandle(int nStdHandle);
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern bool GetConsoleMode(IntPtr hConsoleHandle, out uint lpMode);
+[DllImport("kernel32.dll", SetLastError=true)]
+public static extern bool SetConsoleMode(IntPtr hConsoleHandle, uint dwMode);
+'@
+        $h = [Native.ConsoleVT]::GetStdHandle(-11)
+        $mode = [uint32]0
+        if ([Native.ConsoleVT]::GetConsoleMode($h, [ref]$mode)) {
+            [void][Native.ConsoleVT]::SetConsoleMode($h, ($mode -bor 0x0004))
+        }
+    }
+    catch {}
+}
+
+function Write-Ansi([string]$Text) { [Console]::Write($Text) }
+
+function Write-BloodBanner {
+    Enable-AnsiConsole
+    $sh  = "$esc[38;2;60;0;0m"
+    $mid = "$esc[38;2;120;0;0m"
+    $bld = "$esc[38;2;190;8;8m"
+    $hot = "$esc[38;2;255;40;40m"
+    $drip= "$esc[38;2;140;0;0m"
+    $rst = "$esc[0m"
+    $dim = "$esc[38;2;70;70;70m"
+
+    $art = @(
+        '██████╗ ███████╗ █████╗ ██████╗ ██╗      ██████╗ ██╗   ██╗ ██╗ ██╗ ██╗',
+        '██╔══██╗██╔════╝██╔══██╗██╔══██╗██║     ██╔═══██╗██║   ██║███║███║███║',
+        '██║  ██║█████╗  ███████║██████╔╝██║     ██║   ██║██║   ██║╚██║╚██║╚██║',
+        '██║  ██║██╔══╝  ██╔══██║██╔══██╗██║     ██║   ██║╚██╗ ██╔╝ ██║ ██║ ██║',
+        '██████╔╝███████╗██║  ██║██████╔╝███████╗╚██████╔╝ ╚████╔╝  ██║ ██║ ██║',
+        '╚═════╝ ╚══════╝╚═╝  ╚═╝╚═════╝ ╚══════╝ ╚═════╝   ╚═══╝   ╚═╝ ╚═╝ ╚═╝'
+    )
+
+    Write-Host ''
+    foreach ($line in $art) { Write-Ansi ("  $sh$line$rst`n") }
+    Write-Ansi ("$esc[$($art.Count)A")
+    $i = 0
+    foreach ($line in $art) {
+        $color = if ($i -lt 2) { $hot } elseif ($i -lt 4) { $bld } else { $mid }
+        Write-Ansi ("$color$line$rst`n")
+        $i++
+    }
+    Write-Ansi ("$drip  ║     ║          ║    ║║          ║       ║║         ║  ║  ║$rst`n")
+    Write-Ansi ("$drip  ┘     ┘          ░    ░░     ▄    ▕       ░░         ▕  ▕  ▕$rst`n")
+    Write-Ansi ("$sh  by DEABLOV111$rst`n")
+    Write-Ansi ("$esc[1A$hot" + 'by DEABLOV111' + "$rst  $dim service enabler$rst`n")
+    Write-Host ''
+}
 
 function Write-Header([string]$Text) {
+    $c = "$esc[38;2;220;40;40m"
+    $g = "$esc[38;2;90;90;90m"
+    $w = "$esc[38;2;220;220;220m"
+    $rst = "$esc[0m"
+    $line = '─' * [Math]::Max(8, (62 - $Text.Length))
     Write-Host ''
-    Write-Host $Text -ForegroundColor Cyan
+    Write-Ansi ("$g┌─$c▓$rst $w$Text$rst $g$line$rst`n")
 }
 
 function Write-OK([string]$Text)   { Write-Host "[+] $Text" -ForegroundColor Green }
@@ -54,8 +116,7 @@ $CriticalServices = [ordered]@{
     'Power'      = @{ Startup = 'Automatic'; Start = $true;  Note = 'Питание' }
 }
 
-Write-Host ''
-Write-Host 'by DEABLOV111' -ForegroundColor DarkGray
+Write-BloodBanner
 Write-Info ("ПК: {0} | Юзер: {1} | {2}" -f $env:COMPUTERNAME, $env:USERNAME, (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'))
 
 Write-Header 'ENABLE SERVICES'
@@ -206,6 +267,7 @@ if ($failed.Count -gt 0) {
 }
 
 Write-Host ''
-Write-Host 'by DEABLOV111' -ForegroundColor DarkGray
+Write-Ansi ("  $esc[38;2;60;0;0m  by DEABLOV111$esc[0m`n")
+Write-Ansi ("$esc[1A  $esc[38;2;255;40;40mby DEABLOV111$esc[0m`n")
 Write-Info 'Готово. Проверь через Services.ps1'
 Write-Host ''
