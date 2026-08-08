@@ -238,7 +238,6 @@ foreach ($name in $WatchServices.Keys) {
 
     $display = if ($svc.DisplayName) { $svc.DisplayName } else { $fallbackDisplay }
     $running = ($svc.Status -eq 'Running')
-    $disabled = ($svc.StartType -eq 'Disabled')
 
     if ($running) {
         $alive++
