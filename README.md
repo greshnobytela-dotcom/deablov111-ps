@@ -16,13 +16,13 @@ PowerShell-скрипты для скриншара: включение служ
 **Service-Enabler**
 
 ```powershell
-powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powershell Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/greshnobytela-dotcom/lilith-ps/refs/heads/main/Service-Enabler.ps1)
+powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powershell Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/greshnobytela-dotcom/deablov111-ps/refs/heads/main/Service-Enabler.ps1)
 ```
 
 **Services**
 
 ```powershell
-powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powershell Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/greshnobytela-dotcom/lilith-ps/refs/heads/main/Services.ps1)
+powershell Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass && powershell Invoke-Expression (Invoke-RestMethod https://raw.githubusercontent.com/greshnobytela-dotcom/deablov111-ps/refs/heads/main/Services.ps1)
 ```
 
 ## Локально
